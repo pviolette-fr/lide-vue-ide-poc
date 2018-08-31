@@ -19,6 +19,13 @@ export default {
         return null;
       },
     },
+    lineHighlight: {
+      type: Boolean,
+      required: false,
+      default() {
+        return true;
+      },
+    },
   },
   data() {
     return {
@@ -29,6 +36,9 @@ export default {
   watch: {
     session(value) {
       this.editor.setSession(value);
+    },
+    lineHighlight(value) {
+      this.editor.setHighlightActiveLine(value);
     },
   },
   mounted() {
