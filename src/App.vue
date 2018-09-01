@@ -1,30 +1,14 @@
 <template>
   <v-app
     class="h-screen"
-    light>
-    <v-toolbar>
+    :dark="options.useDarkTheme"
+  >
+    <v-toolbar
+    >
       <v-toolbar-side-icon @click="openDrawer"/>
       <v-toolbar-title>LIDE - Université d'Angers</v-toolbar-title>
       <v-spacer/>
-      <v-toolbar-items class="hidden-sm-and-down">
-        <v-btn
-          flat
-          :disabled="isRunning"
-          :loading="isRunningLoading"
-          @click="run"
-        >
-          <v-icon>fa-play</v-icon>
-          <span class="hidden md:inline ml-2">Run</span>
-        </v-btn>
-        <v-btn
-          flat
-          :disabled="!isRunning"
-          @click="stop"
-        >
-          <v-icon>fa-stop</v-icon>
-          <span class="hidden md:inline ml-2">Stop</span>
-        </v-btn>
-      </v-toolbar-items>
+      <v-toolbar-items class="hidden-sm-and-down"/>
     </v-toolbar>
 
     <v-navigation-drawer
@@ -42,7 +26,7 @@
             </v-list-tile-avatar>
 
             <v-list-tile-content>
-              <v-list-tile-title>John Leider</v-list-tile-title>
+              <v-list-tile-title>John Smith</v-list-tile-title>
             </v-list-tile-content>
           </v-list-tile>
         </v-list>
@@ -67,58 +51,124 @@
       fill-height
       fluid
     >
-      <v-layout
-        row
-        xs12>
-        <!-- Editor -->
-        <v-flex
-          d-flex
-          fill-height>
-          <v-layout
-            column
+      <v-layout column>
+        <v-layout
+          :row="consoleSide"
+          :column="!consoleSide"
+          xs12>
+          <!-- Editor -->
+          <v-flex
+            d-flex
             fill-height>
-            <v-tabs
-              v-model="activeFile"
-              show-arrows
-            >
-              <v-tab
-                class="h-1/2"
-                v-for="(file, key) in files"
-                :key="key"
+            <v-layout
+              column
+              fill-height>
+              <v-tabs
+                v-model="activeFile"
+                show-arrows
               >
-                {{ key }}
-              </v-tab>
-            </v-tabs>
-            <editor
-              ref="editor"
-              class="text-lg"
-              :session="activeSession"
-              :line-highlight="options.lineHighlight"
-            />
-          </v-layout>
-        </v-flex>
-        <v-flex
-          xs6
-          d-flex
-          v-if="showConsole"
+                <v-tab
+                  v-for="(session, index) in sessions"
+                  :key="index"
+                >
+                  {{ session.name }}
+                </v-tab>
+              </v-tabs>
+              <editor
+                ref="editor"
+                class="text-lg"
+                :session="activeSession"
+                :line-highlight="options.lineHighlight"
+              />
+            </v-layout>
+          </v-flex>
+          <v-flex
+            xs6
+            d-flex
+            v-if="showConsole"
+          >
+            <v-layout
+              column
+            >
+              <console
+                :show-prompt="showConsolePrompt"
+                :buffer="consoleBuffer"
+                :input-loading="inputLoading"
+                @input="appendLineToBuffer"/>
+            </v-layout>
+          </v-flex>
+        </v-layout>
+        <v-toolbar
+          dense
         >
-          <console
-            :show-prompt="showConsolePrompt"
-            :buffer="consoleBuffer"
+          <v-dialog
+            v-model="newFile.dialog"
+            max-width="500px">
+            <v-btn
+              slot="activator"
+              flat
+            >
+              <v-icon>fa-file</v-icon>
+              <span class="hidden md:inline ml-2">New File</span>
+            </v-btn>
+            <v-card>
+              <v-card-title>
+                <span class="headline">New File</span>
+              </v-card-title>
+              <v-card-text>
+                <v-form
+                  v-model="newFile.formValid"
+                  @submit.prevent="createNewFile"
+                >
+                  <v-text-field
+                    v-model="newFile.name"
+                    label="Name"
+                    required
+                  />
+                </v-form>
+              </v-card-text>
+              <v-card-actions>
+                <v-spacer/>
+                <v-btn
+                  color="blue darken-1"
+                  flat
+                  @click.native="newFile.dialog = false">Cancel</v-btn>
+                <v-btn
+                  color="blue darken-1"
+                  flat
+                  @click.native="createNewFile">Create</v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-dialog>
+          <v-spacer/>
+          <v-btn
+            flat
+            :disabled="isRunning"
+            :loading="isRunningLoading"
+            @click="run"
+          >
+            <v-icon>fa-play</v-icon>
+            <span class="hidden md:inline ml-2">Run</span>
+          </v-btn>
+          <v-btn
+            flat
+            :disabled="!isRunning"
+            @click="stop"
+          >
+            <v-icon>fa-stop</v-icon>
+            <span class="hidden md:inline ml-2">Stop</span>
+          </v-btn>
+          <v-btn
+            flat
+            title="Toggle Console"
             :input-loading="inputLoading"
-            @input="appendLineToBuffer"/>
-        </v-flex>
+            @click="toggleConsole">
+            <v-icon>fa-terminal</v-icon>
+            <span class="hidden lg:inline ml-2">Terminal</span>
+          </v-btn>
+        </v-toolbar>
       </v-layout>
     </v-container>
-    <v-btn
-      absolute
-      title="Toggle Console"
-      style="right: 0; bottom: 0;"
-      :input-loading="inputLoading"
-      @click="toggleConsole">
-      <v-icon>{{ showConsole ? 'tab_unselected' : 'tab' }}</v-icon>
-      <span class="hidden lg:inline">{{ toggleConsoleText }}</span>
-    </v-btn>
   </v-app>
 </template>
 <script>
@@ -162,6 +212,7 @@ export default {
           useSoftTabs: true,
           useWrapMode: true,
           lineHighlight: true,
+          useDarkTheme: false,
         };
       },
     },
@@ -174,7 +225,10 @@ export default {
       );
       session.setUseSoftTabs(this.userOptions.useSoftTabs);
       session.setUseWrapMode(this.userOptions.useWrapMode);
-      return session;
+      return {
+        name: fileName,
+        sessionObject: session,
+      };
     });
     return {
       options: JSON.parse(JSON.stringify(this.userOptions)), // Copy the object
@@ -188,20 +242,27 @@ export default {
       isRunningLoading: false,
       stopLoading: false,
       inputLoading: false,
+      consoleSide: true,
+      newFile: {
+        dialog: false,
+        formValid: true,
+        name: '',
+      },
     };
   },
   mounted() {
   },
   computed: {
     activeSession() {
-      return this.sessions[this.activeFile];
+      return this.sessions[this.activeFile] ?
+        this.sessions[this.activeFile].sessionObject : undefined;
     },
     toggleConsoleText() {
-      // if (this.showConsole) {
-      //   return 'Hide Console';
-      // }
-      // return 'Show Console';
-      return 'Console';
+      if (this.showConsole) {
+        return 'Hide Console';
+      }
+      return 'Show Console';
+      // return 'Console';
     },
     showConsolePrompt() {
       return !this.isRunning;
@@ -252,6 +313,23 @@ export default {
         this.stopLoading = false;
       }, 750);
       // TODO API
+    },
+    createNewFile() {
+      const session = new EditSession(
+        '',
+        this.modeForFile(this.newFile.name),
+      );
+      session.setUseSoftTabs(this.userOptions.useSoftTabs);
+      session.setUseWrapMode(this.userOptions.useWrapMode);
+      this.sessions.push({
+        name: this.newFile.name,
+        sessionObject: session,
+      });
+      this.resetNewFileForm();
+      this.newFile.dialog = false;
+    },
+    resetNewFileForm() {
+      this.newFile.name = '';
     },
   },
   watch: {

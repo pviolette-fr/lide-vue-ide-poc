@@ -1,36 +1,37 @@
 <template>
   <div
-    class="bg-black h-full px-2 py-1 font-mono text-white"
+    class="font-mono text-white bg-black h-full"
     @click="giveFocus">
-    <p
-      v-for="(line, index) in lines"
-      :key="index"
-      class=""
-      v-text="line"/>
-    <div class="relative m-w-full">
-      <!--<div-->
-      <!--class="font-bold mr-2 "-->
-      <!--v-if="showPrompt">-->
-      <!--{{ prompt }}-->
-      <!--</div>-->
-      <input
-        v-model="input"
-        ref="consoleInput"
-        type="text"
-        class="w-full bg-grey-darkest p-2"
-        @keyup.enter="validateInput"
-        @focus="hasFocus=true"
-        @blur="hasFocus=false"
-        title="console-input">
+    <div class="border-4 h-full px-2 py-4">
+      <p
+        v-for="(line, index) in lines"
+        :key="index"
+        class=""
+        v-text="line"/>
+      <div class="relative m-w-full">
+        <!--<div-->
+        <!--class="font-bold mr-2 "-->
+        <!--v-if="showPrompt">-->
+        <!--{{ prompt }}-->
+        <!--</div>-->
+        <input
+          v-model="input"
+          ref="consoleInput"
+          type="text"
+          class="w-full bg-grey-darkest p-2 rounded"
+          @keyup.enter="validateInput"
+          @focus="hasFocus=true"
+          @blur="hasFocus=false"
+          title="console-input">
 
-      <div
-        v-if="inputLoading"
-        class="absolute mx-2"
-        style="right: 0px; top:0px">
-        <i class="fas fa-sync fa-spin"/>
+        <div
+          v-if="inputLoading"
+          class="absolute mx-2"
+          style="right: 0px; top:0px">
+          <i class="fas fa-sync fa-spin"/>
+        </div>
       </div>
     </div>
-
   </div>
 </template>
 
