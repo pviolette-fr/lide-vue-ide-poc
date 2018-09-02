@@ -141,11 +141,19 @@
                   <v-list-tile-title>New File</v-list-tile-title>
                 </v-list-tile-content>
               </v-list-tile>
-              <v-list-tile @click="openImportFileForm">
+              <v-list-tile @click="onImportFileButtonClick">
                 <v-list-tile-action><v-icon>fas fa-file-import</v-icon></v-list-tile-action>
                 <v-list-tile-content>
                   <v-list-tile-title>Import</v-list-tile-title>
                 </v-list-tile-content>
+                <input
+                  class="absolute"
+                  style="top: -999999px"
+                  type="file"
+                  accept="*"
+                  :multiple="false"
+                  ref="importFileInput"
+                  @change="onImportFileChange">
               </v-list-tile>
             </v-list>
           </template>
@@ -282,7 +290,6 @@
                 style="min-height: 6px; min-width: 6px"
                 :class="{'h-full' : !options.layoutStacked,
                          'w-full' : options.layoutStacked,}"
-                @mousedown="consoleResizeMouseDown"
               >
                 <div
                   class="bg-black absolute"
@@ -310,7 +317,7 @@
                   :input-loading="inputLoading"
                   @input="appendLineToBuffer"/>
               </v-flex>
-            </div></div></template>
+            </template>
           </v-layout>
           <v-toolbar
             dense
@@ -553,6 +560,7 @@ export default {
         cpp: 'c_cpp',
         c: 'c_cpp',
         h: 'c_cpp',
+        js: 'javascript',
       };
     },
     splitFileName(fileName) {
@@ -602,17 +610,20 @@ export default {
       }, 750);
       // TODO API
     },
-    createNewFile() {
+    addFile(name, content) {
       const session = new EditSession(
-        '',
-        this.modeForFile(this.newFile.name),
+        content,
+        this.modeForFile(name),
       );
       session.setUseSoftTabs(this.userOptions.useSoftTabs);
       session.setUseWrapMode(this.userOptions.useWrapMode);
       this.sessions.push({
-        name: this.newFile.name,
+        name,
         sessionObject: session,
       });
+    },
+    createNewFile() {
+      this.addFile(this.newFile.name, ''); // TODO content from template
       this.activeFile = this.sessions.length - 1;
       this.resetNewFileForm();
       this.newFile.dialog = false;
@@ -653,11 +664,27 @@ export default {
     openFileForm() {
       this.newFile.dialog = true;
     },
-    openImportFileForm() {
-      // TODO
+    onImportFileButtonClick() {
+      this.$refs.importFileInput.click();
     },
-    consoleResizeMouseDown(ev) {
-      console.log(ev);
+    onImportFileChange($event) {
+      const files = $event.target.files || $event.dataTransfer.files;
+      if (files) {
+        if (files.length > 0) {
+          this.addImportedFile(files[0]);
+        }
+      }
+    },
+    /**
+     * @param {File} file
+     */
+    addImportedFile(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.addFile(file.name, reader.result);
+        this.activeFile = this.sessions.length - 1;
+      };
+      reader.readAsText(file);
     },
   },
   watch: {

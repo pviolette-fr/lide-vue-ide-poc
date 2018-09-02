@@ -4,7 +4,11 @@
 
 <script>
 import ace from 'brace';
+// Language Mode
 import 'brace/mode/c_cpp';
+import 'brace/mode/javascript';
+
+// Themes
 import 'brace/theme/twilight';
 import 'brace/theme/clouds';
 import 'brace/theme/clouds_midnight';
