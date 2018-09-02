@@ -96,66 +96,14 @@
           column
           class="w-3/4">
           <template v-if="drawerSideActive === 'files'">
-            <v-list
-              dense>
-              <v-subheader>Files</v-subheader>
-              <v-list-tile
-                v-for="(session, index) in sessions"
-                :key="index"
-                :class="{ 'drawer-active-file' : activeFile === index}"
-                @click="activeFile = index"
-              >
-                <v-list-tile-action><v-icon size="12px">fa-file</v-icon></v-list-tile-action>
-                <v-list-tile-content>
-                  <v-list-tile-title>{{ session.name }}</v-list-tile-title>
-                </v-list-tile-content>
-                <v-menu
-                  offset-y
-                >
-                  <v-btn
-                    slot="activator"
-                    fab
-                    flat
-                    small
-                  ><v-icon>more_vert</v-icon></v-btn>
-                  <v-list dense>
-                    <v-list-tile
-                      @click="removeSession(index)"
-                    >
-                      <v-list-tile-title>Delete</v-list-tile-title>
-                    </v-list-tile>
-                    <v-list-tile
-                      @click="duplicateFile(index)"
-                    >
-                      <v-list-tile-title>Duplicate</v-list-tile-title>
-                    </v-list-tile>
-                  </v-list>
-                </v-menu>
-              </v-list-tile>
-            </v-list>
-            <v-list dense>
-              <v-divider/>
-              <v-list-tile @click="openFileForm">
-                <v-list-tile-action><v-icon>fa-plus</v-icon></v-list-tile-action>
-                <v-list-tile-content>
-                  <v-list-tile-title>New File</v-list-tile-title>
-                </v-list-tile-content>
-              </v-list-tile>
-              <v-list-tile @click="onImportFileButtonClick">
-                <v-list-tile-action><v-icon>fas fa-file-import</v-icon></v-list-tile-action>
-                <v-list-tile-content>
-                  <v-list-tile-title>Import</v-list-tile-title>
-                </v-list-tile-content>
-                <input
-                  class="absolute"
-                  style="top: -999999px"
-                  type="file"
-                  accept="*"
-                  :multiple="false"
-                  ref="importFileInput"
-                  @change="onImportFileChange">
-              </v-list-tile>
-            </v-list>
+            <files-panel
+              :files-name="fileNameList"
+              :active-file-index="activeFile"
+              @file-selected="selectFile"
+              @submit-new-file="submitNewFile"
+              @duplicate-file="duplicateFile"
+              @remove-file="removeSession"
+            />
           </template>
           <template v-if="drawerSideActive === 'settings'">
             <v-list
@@ -438,9 +386,10 @@
 </template>
 <script>
 
-import Editor from './components/editor.vue';
+import Editor from './components/ide/editor.vue';
 import fileTypeDetection from './mixins/file-type-detection';
-import Console from './components/console.vue';
+import Console from './components/ide/console.vue';
+import FilesPanel from './components/app-interface/files-panel';
 
 // eslint-disable-next-line prefer-destructuring
 const EditSession = require('brace').EditSession;
@@ -549,8 +498,17 @@ export default {
     showConsolePrompt() {
       return !this.isRunning;
     },
+    fileNameList() {
+      return this.sessions.map(session => session.name);
+    },
   },
   methods: {
+    selectFile(index) {
+      this.activeFile = index;
+    },
+    submitNewFile({ name, content }) {
+      this.addFile(name, content);
+    },
     modeForFile(fileName) {
       const lang = this.languageFromFile(fileName);
       return `ace/mode/${lang}`;
@@ -705,6 +663,7 @@ export default {
   },
   mixins: [fileTypeDetection],
   components: {
+    FilesPanel,
     Console,
     Editor,
   },
