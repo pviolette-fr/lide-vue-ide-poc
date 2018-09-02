@@ -24,7 +24,7 @@
           ><v-icon>more_vert</v-icon></v-btn>
           <v-list dense>
             <v-list-tile
-              @click="removeFile(index)"
+              @click="removeFileAtIndex(index)"
             >
               <v-list-tile-title>Delete</v-list-tile-title>
             </v-list-tile>
@@ -121,10 +121,10 @@ export default {
     selectActiveFile(index) {
       this.$emit('file-selected', index);
     },
-    removeFile(index) {
+    removeFileAtIndex(index) {
       this.$emit('remove-file', index);
     },
-    duplicateFile(index) {
+    duplicateFileAtIndex(index) {
       this.$emit('duplicate-file', index);
     },
     submitCreateNewFile() {
@@ -143,7 +143,7 @@ export default {
           const file = files[0];
           const reader = new FileReader();
           reader.onload = () => {
-            this.$emit('sumbmit-new-file', { name: file.name, content: reader.result });
+            this.$emit('submit-new-file', { name: file.name, content: reader.result });
           };
           reader.readAsText(file);
         }

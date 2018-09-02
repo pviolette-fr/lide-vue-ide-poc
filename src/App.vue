@@ -98,11 +98,11 @@
           <template v-if="drawerSideActive === 'files'">
             <files-panel
               :files-name="fileNameList"
-              :active-file-index="activeFile"
+              :active-file-index="activeFileIndex"
               @file-selected="selectFile"
               @submit-new-file="submitNewFile"
-              @duplicate-file="duplicateFile"
-              @remove-file="removeSession"
+              @duplicate-file="duplicateFileAtIndex"
+              @remove-file="removeFileAtIndex"
             />
           </template>
           <template v-if="drawerSideActive === 'settings'">
@@ -218,14 +218,14 @@
                     small
                     color="secondary"
                     label>
-                    {{ currentFile.name }}
+                    {{ activeFile.name }}
                   </v-chip>
                 </div>
                 <div class="flex-grow flex-1">
                   <editor
                     ref="editor"
                     class="text-lg"
-                    :session="activeSession"
+                    :session="activeFileEditSession"
                     :theme="options.editorTheme"
                     :line-highlight="options.lineHighlight"
                   />
@@ -300,38 +300,6 @@
         </v-layout>
       </v-container>
       <v-dialog
-        v-model="newFile.dialog"
-        max-width="500px">
-        <v-card>
-          <v-card-title>
-            <span class="headline">New File</span>
-          </v-card-title>
-          <v-card-text>
-            <v-form
-              v-model="newFile.formValid"
-              @submit.prevent="createNewFile"
-            >
-              <v-text-field
-                v-model="newFile.name"
-                label="Name"
-                required
-              />
-            </v-form>
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer/>
-            <v-btn
-              color="blue darken-1"
-              flat
-              @click.native="newFile.dialog = false">Cancel</v-btn>
-            <v-btn
-              color="blue darken-1"
-              flat
-              @click.native="createNewFile">Create</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
-      <v-dialog
         v-model="ideConfigDialog"
         fullscreen
       >
@@ -387,37 +355,14 @@
 <script>
 
 import Editor from './components/ide/editor.vue';
-import fileTypeDetection from './mixins/file-type-detection';
 import Console from './components/ide/console.vue';
-import FilesPanel from './components/app-interface/files-panel';
-
+import FilesPanel from './components/app-interface/files-panel.vue';
+import fileManagement from './mixins/files-management';
 // eslint-disable-next-line prefer-destructuring
-const EditSession = require('brace').EditSession;
 
 export default {
   name: 'App',
   props: {
-    files: {
-      type: Object,
-      required: false,
-      default() {
-        return {
-          'main.cpp': {
-            content: '#include <iostream>\n' +
-              'using namespace std;\n' +
-              '\n' +
-              'int main() \n' +
-              '{\n' +
-              '    cout << "Hello, World!";\n' +
-              '    return 0;\n' +
-              '}',
-          },
-          'header.h': {
-            content: '#define VAR 3',
-          },
-        };
-      },
-    },
     userOptions: {
       type: Object,
       required: false,
@@ -434,18 +379,6 @@ export default {
     },
   },
   data() {
-    const sessions = Object.keys(this.files).map((fileName) => {
-      const session = new EditSession(
-        this.files[fileName].content,
-        this.modeForFile(fileName),
-      );
-      session.setUseSoftTabs(this.userOptions.useSoftTabs);
-      session.setUseWrapMode(this.userOptions.useWrapMode);
-      return {
-        name: fileName,
-        sessionObject: session,
-      };
-    });
     return {
       drawerOpen: true,
       availableThemes: [
@@ -455,8 +388,6 @@ export default {
         { label: 'Crimson', value: 'crimson_editor' },
         { label: 'Ambiance', value: 'ambiance' },
       ],
-      activeFile: 0,
-      sessions,
       // Console
       consoleBuffer: '',
       showConsole: true,
@@ -465,12 +396,6 @@ export default {
       stopLoading: false,
       inputLoading: false,
       consoleSide: true,
-      // New file form
-      newFile: {
-        dialog: false,
-        formValid: true,
-        name: '',
-      },
       // Configuration
       options: JSON.parse(JSON.stringify(this.userOptions)),
       ideConfigDialog: false,
@@ -481,58 +406,13 @@ export default {
   mounted() {
   },
   computed: {
-    activeSession() {
-      return this.sessions[this.activeFile] ?
-        this.sessions[this.activeFile].sessionObject : undefined;
-    },
-    currentFile() {
-      return this.sessions[this.activeFile];
-    },
-    toggleConsoleText() {
-      if (this.showConsole) {
-        return 'Hide Console';
-      }
-      return 'Show Console';
-      // return 'Console';
-    },
     showConsolePrompt() {
       return !this.isRunning;
     },
-    fileNameList() {
-      return this.sessions.map(session => session.name);
-    },
   },
   methods: {
-    selectFile(index) {
-      this.activeFile = index;
-    },
     submitNewFile({ name, content }) {
       this.addFile(name, content);
-    },
-    modeForFile(fileName) {
-      const lang = this.languageFromFile(fileName);
-      return `ace/mode/${lang}`;
-    },
-    extensionAceModeMatch() {
-      return {
-        cpp: 'c_cpp',
-        c: 'c_cpp',
-        h: 'c_cpp',
-        js: 'javascript',
-      };
-    },
-    splitFileName(fileName) {
-      const regex = /(.*)\.([0-9a-z]+)$/gi;
-      const matches = regex.exec(fileName);
-      let baseName = fileName;
-      let ext = '';
-      if (matches !== null) {
-        // eslint-disable-next-line prefer-destructuring
-        baseName = matches[1];
-        // eslint-disable-next-line prefer-destructuring
-        ext = matches[2];
-      }
-      return { baseName, ext };
     },
     appendLineToBuffer(append) {
       this.inputLoading = true;
@@ -568,81 +448,11 @@ export default {
       }, 750);
       // TODO API
     },
-    addFile(name, content) {
-      const session = new EditSession(
-        content,
-        this.modeForFile(name),
-      );
-      session.setUseSoftTabs(this.userOptions.useSoftTabs);
-      session.setUseWrapMode(this.userOptions.useWrapMode);
-      this.sessions.push({
-        name,
-        sessionObject: session,
-      });
-    },
-    createNewFile() {
-      this.addFile(this.newFile.name, ''); // TODO content from template
-      this.activeFile = this.sessions.length - 1;
-      this.resetNewFileForm();
-      this.newFile.dialog = false;
-    },
-    resetNewFileForm() {
-      this.newFile.name = '';
-    },
-    duplicateFile(index) {
-      const newEditSession = new EditSession(
-        this.sessions[index].sessionObject.getValue(),
-        this.modeForFile(this.sessions[index].name),
-      );
-      const { baseName, ext } = this.splitFileName(this.sessions[index].name);
-      this.sessions.splice(index + 1, 0, {
-        sessionObject: newEditSession,
-        name: `${this.generateNewFileName(baseName)}.${ext}`,
-      });
-    },
-    generateNewFileName(base = 'New File') {
-      let tryCount = 1;
-      const callback = session => base + tryCount === session.name;
-      while (this.sessions.find(callback)) {
-        tryCount += 1;
-      }
-      return base + tryCount;
-    },
-    removeSession(index) {
-      this.$nextTick(() => {
-        this.sessions.splice(index, 1);
-        if (this.activeFile >= this.sessions.length) {
-          this.activeFile = this.sessions.length - 1;
-        }
-      });
-    },
     openIDEConfiguration() {
       this.ideConfigDialog = true;
     },
-    openFileForm() {
-      this.newFile.dialog = true;
-    },
     onImportFileButtonClick() {
       this.$refs.importFileInput.click();
-    },
-    onImportFileChange($event) {
-      const files = $event.target.files || $event.dataTransfer.files;
-      if (files) {
-        if (files.length > 0) {
-          this.addImportedFile(files[0]);
-        }
-      }
-    },
-    /**
-     * @param {File} file
-     */
-    addImportedFile(file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        this.addFile(file.name, reader.result);
-        this.activeFile = this.sessions.length - 1;
-      };
-      reader.readAsText(file);
     },
   },
   watch: {
@@ -661,7 +471,7 @@ export default {
       });
     },
   },
-  mixins: [fileTypeDetection],
+  mixins: [fileManagement],
   components: {
     FilesPanel,
     Console,
@@ -678,10 +488,6 @@ export default {
 
     .v-tabs__div{
       text-transform: none;
-    }
-
-    .drawer-active-file .v-list__tile__title {
-      font-weight: bold;
     }
 
     .drawerSideActive::before {
