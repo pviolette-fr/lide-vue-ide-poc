@@ -106,54 +106,11 @@
             />
           </template>
           <template v-if="drawerSideActive === 'settings'">
-            <v-list
-              subheader
-              two-line
-              dense
-            >
-              <v-subheader>IDE Configuration</v-subheader>
-              <v-list-tile>
-                <v-list-tile-action>
-                  <v-switch v-model="options.useSoftTabs"/>
-                </v-list-tile-action>
-                <v-list-tile-content @click="options.useSoftTabs = !options.useSoftTabs">
-                  <v-list-tile-title>Indent With Space</v-list-tile-title>
-                  <v-list-tile-sub-title>Use soft tabs</v-list-tile-sub-title>
-                </v-list-tile-content>
-              </v-list-tile>
-              <v-list-tile>
-                <v-list-tile-action>
-                  <v-switch v-model="options.useWrapMode"/>
-                </v-list-tile-action>
-                <v-list-tile-content @click="options.useWrapMode = !options.useWrapMode">
-                  <v-list-tile-title>Wrap Lines</v-list-tile-title>
-                  <v-list-tile-sub-title>Wrap long lines</v-list-tile-sub-title>
-                </v-list-tile-content>
-              </v-list-tile>
-              <v-list-tile>
-                <v-select
-                  dense
-                  :items="[{label: 'Stacked', value: true}, {label: 'Side By Side', value: false}]"
-                  v-model="options.layoutStacked"
-                  label="Layout"
-                  item-text="label"
-                  item-value="value"
-                />
-              </v-list-tile>
-              <v-divider/>
-              <v-subheader>Theming</v-subheader>
-              <v-list-tile>
-                <v-select
-                  dense
-                  :items="availableThemes"
-                  v-model="options.editorTheme"
-                  label="Editor Theme"
-                  item-text="label"
-                  item-value="value"
-                />
-              </v-list-tile>
-            </v-list>
-
+            <settings-panel
+              v-model="options"
+              :loading="configSaveLoading"
+              @save="saveConfiguration"
+            />
           </template>
         </v-layout>
       </v-layout>
@@ -169,28 +126,43 @@
       <v-toolbar-title>LIDE - Université d'Angers</v-toolbar-title>
       <v-spacer/>
       <v-toolbar-items class="hidden-sm-and-down">
-        <v-btn
-          flat
-          title="IDE Configuration"
-          small
-          @click="openIDEConfiguration"
-        >
-          <v-icon>fa-cog</v-icon>
-        </v-btn>
-        <v-btn
-          flat
-          title="Profile"
-          small
-        >
-          <v-icon>fa-user-cog</v-icon>
-        </v-btn>
-        <v-btn
-          flat
-          small
-          title="Quit"
-        >
-          <v-icon>fa-sign-out-alt</v-icon>
-        </v-btn>
+        <v-tooltip bottom>
+          <v-btn
+            slot="activator"
+            flat
+            small
+            :disabled="isRunning"
+            :loading="isRunningLoading"
+            @click="run"
+          >
+            <v-icon>fa-play</v-icon>
+          </v-btn>
+          <span class="text-lg">Compile & Run</span>
+        </v-tooltip>
+        <v-tooltip bottom>
+          <v-btn
+            slot="activator"
+            flat
+            small
+            :disabled="isRunning"
+            @click="runDebug"
+          >
+            <v-icon>fas fa-bug</v-icon>
+          </v-btn>
+          <span class="text-lg">Run In Debugger</span>
+        </v-tooltip>
+        <v-tooltip bottom>
+          <v-btn
+            slot="activator"
+            flat
+            small
+            :disabled="!isRunning"
+            @click="stop"
+          >
+            <v-icon>fa-stop</v-icon>
+          </v-btn>
+          <span class="text-lg">Stop</span>
+        </v-tooltip>
       </v-toolbar-items>
     </v-toolbar>
     <v-content>
@@ -216,7 +188,7 @@
                   style="max-height: 48px;">
                   <v-chip
                     small
-                    color="secondary"
+                    color="accent"
                     label>
                     {{ activeFile.name }}
                   </v-chip>
@@ -267,38 +239,27 @@
               </v-flex>
             </template>
           </v-layout>
-          <v-toolbar
-            dense
-          >
-            <v-spacer/>
-            <v-btn
-              flat
-              :disabled="isRunning"
-              :loading="isRunningLoading"
-              @click="run"
-            >
-              <v-icon>fa-play</v-icon>
-              <span class="hidden md:inline ml-2">Run</span>
-            </v-btn>
-            <v-btn
-              flat
-              :disabled="!isRunning"
-              @click="stop"
-            >
-              <v-icon>fa-stop</v-icon>
-              <span class="hidden md:inline ml-2">Stop</span>
-            </v-btn>
-            <v-btn
-              flat
-              title="Toggle Console"
-              :input-loading="inputLoading"
-              @click="toggleConsole">
-              <v-icon>fa-terminal</v-icon>
-              <span class="hidden lg:inline ml-2">Terminal</span>
-            </v-btn>
-          </v-toolbar>
         </v-layout>
+        <div
+          class="absolute m-2"
+          style="right: 0; top: 0">
+          <v-tooltip
+            left
+          >
+            <button
+              @click="toggleConsole"
+              class="text-xl text-grey "
+              slot="activator"
+            >
+              <v-icon
+                color="grey">{{ showConsole ? 'fas fa-eye-slash' : 'far fa-eye' }}
+              </v-icon>
+            </button>
+            <span>{{ showConsole ? 'Hide' : 'Show' }} Terminal</span>
+          </v-tooltip>
+        </div>
       </v-container>
+
       <v-dialog
         v-model="ideConfigDialog"
         fullscreen
@@ -358,6 +319,7 @@ import Editor from './components/ide/editor.vue';
 import Console from './components/ide/console.vue';
 import FilesPanel from './components/app-interface/files-panel.vue';
 import fileManagement from './mixins/files-management';
+import SettingsPanel from './components/app-interface/settings-panel.vue';
 // eslint-disable-next-line prefer-destructuring
 
 export default {
@@ -381,13 +343,6 @@ export default {
   data() {
     return {
       drawerOpen: true,
-      availableThemes: [
-        { label: 'Tomorrow Night', value: 'tomorrow_night' },
-        { label: 'twilight', value: 'twilight' },
-        { label: 'clouds', value: 'clouds' },
-        { label: 'Crimson', value: 'crimson_editor' },
-        { label: 'Ambiance', value: 'ambiance' },
-      ],
       // Console
       consoleBuffer: '',
       showConsole: true,
@@ -454,25 +409,34 @@ export default {
     onImportFileButtonClick() {
       this.$refs.importFileInput.click();
     },
+    saveConfiguration() {
+      // TODO API CALL
+      // Faker
+      this.configSaveLoading = true;
+      setTimeout(() => {
+        this.configSaveLoading = false;
+      }, 1000);
+    },
   },
   watch: {
     // activeFile(value) {
     // },
     // eslint-disable-next-line object-shorthand
     'options.useSoftTabs'(value) {
-      this.sessions.forEach((session) => {
-        session.sessionObject.setUseSoftTabs(value);
+      this.files.forEach((file) => {
+        file.session.setUseSoftTabs(value);
       });
     },
     // eslint-disable-next-line object-shorthand
     'options.useWrapMode'(value) {
-      this.sessions.forEach((session) => {
-        session.sessionObject.setUseWrapMode(value);
+      this.files.forEach((file) => {
+        file.session.setUseWrapMode(value);
       });
     },
   },
   mixins: [fileManagement],
   components: {
+    SettingsPanel,
     FilesPanel,
     Console,
     Editor,
