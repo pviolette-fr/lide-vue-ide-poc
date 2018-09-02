@@ -1,34 +1,39 @@
 <template>
-  <div
-    class="font-mono text-white bg-black h-full"
-    @click="giveFocus">
-    <div class="border-4 h-full px-2 py-4">
-      <p
-        v-for="(line, index) in lines"
-        :key="index"
-        class=""
-        v-text="line"/>
-      <div class="relative m-w-full">
-        <!--<div-->
-        <!--class="font-bold mr-2 "-->
-        <!--v-if="showPrompt">-->
-        <!--{{ prompt }}-->
-        <!--</div>-->
-        <input
-          v-model="input"
-          ref="consoleInput"
-          type="text"
-          class="w-full bg-grey-darkest p-2 rounded"
-          @keyup.enter="validateInput"
-          @focus="hasFocus=true"
-          @blur="hasFocus=false"
-          title="console-input">
-
+  <div class="h-full w-full bg-grey">
+    <div
+      class="font-mono text-white bg-black h-full"
+      @click="giveFocus">
+      <div
+        class="h-full px-2 py-4 overflow-auto max-h-full"
+        style="max-height: calc(100% - 3px)"
+        ref="wrapper">
         <div
-          v-if="inputLoading"
-          class="absolute mx-2"
-          style="right: 0px; top:0px">
-          <i class="fas fa-sync fa-spin"/>
+          v-for="(line, index) in lines"
+          :key="index"
+          class=""
+          v-text="line"/>
+        <div class="relative m-w-full">
+          <!--<div-->
+          <!--class="font-bold mr-2 "-->
+          <!--v-if="showPrompt">-->
+          <!--{{ prompt }}-->
+          <!--</div>-->
+          <input
+            v-model="input"
+            ref="consoleInput"
+            type="text"
+            class="w-full bg-grey-darkest p-2 rounded mb-2"
+            @keyup.enter="validateInput"
+            @focus="hasFocus=true"
+            @blur="hasFocus=false"
+            title="console-input">
+
+          <div
+            v-if="inputLoading"
+            class="absolute mx-2"
+            style="right: 0px; top:0px">
+            <i class="fas fa-sync fa-spin"/>
+          </div>
         </div>
       </div>
     </div>
@@ -82,6 +87,15 @@ export default {
     validateInput() {
       this.$emit('input', this.input);
       this.input = '';
+    },
+    scrollBottom() {
+      this.$refs.wrapper.scrollTop =
+        this.$refs.wrapper.scrollHeight - this.$refs.wrapper.clientHeight;
+    },
+  },
+  watch: {
+    buffer() {
+      this.$nextTick(() => { this.scrollBottom(); });
     },
   },
   name: 'Console',
