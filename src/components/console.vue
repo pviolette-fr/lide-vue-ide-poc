@@ -77,7 +77,6 @@ export default {
   },
   methods: {
     giveFocus() {
-      console.log('focus');
       this.$refs.consoleInput.focus();
     },
     validateInput() {

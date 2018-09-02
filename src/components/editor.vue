@@ -5,6 +5,7 @@
 <script>
 import ace from 'brace';
 import 'brace/mode/c_cpp';
+import 'brace/theme/twilight';
 
 export default {
   props: {
@@ -44,6 +45,7 @@ export default {
   mounted() {
     this.editor = ace.edit(this.$el);
     this.editor.setSession(this.session);
+    // this.editor.setTheme('ace/theme/twilight');
   },
   name: 'Editor',
 };
